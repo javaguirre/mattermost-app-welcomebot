@@ -19,6 +19,14 @@ var IconData []byte
 var RootURL string = os.Getenv("MANIFEST_ROOT_URL")
 var ServerPort string = os.Getenv("SERVER_PORT")
 
+const AppID = "welcome-bot"
+const commandHelp = `* |/welcomebot preview [team-name] | - preview the welcome message for the given team name. The current user's username will be used to render the template.
+* |/welcomebot list| - list the teams for which welcome messages were defined
+* |/welcomebot set_channel_welcome [welcome-message]| - set the welcome message for the given channel. Direct channels are not supported.
+* |/welcomebot get_channel_welcome| - print the welcome message set for the given channel (if any)
+* |/welcomebot delete_channel_welcome| - delete the welcome message for the given channel (if any)
+`
+
 // Manifest declares the app's metadata. It must be provided for the app to be
 // installable. In this example, the following permissions are requested:
 //   - Create posts as a bot.
@@ -27,7 +35,7 @@ var ServerPort string = os.Getenv("SERVER_PORT")
 //   - Add a /-command with a callback.
 var Manifest = apps.Manifest{
 	// App ID must be unique across all Mattermost Apps.
-	AppID: "welcome-bot",
+	AppID: AppID,
 
 	// App's release/version.
 	Version: "v0.1.0",
@@ -122,7 +130,11 @@ var SetChannelWelcome = apps.Form{
 	Fields: []apps.Field{
 		{
 			Type: "text",
-			Name: "Team Name",
+			Name: "team_name",
+		},
+		{
+			Type: "text",
+			Name: "message",
 		},
 	},
 	Submit: apps.NewCall("/set_channel_welcome").WithExpand(apps.Expand{ActingUserAccessToken: apps.ExpandAll}),
@@ -158,14 +170,8 @@ func main() {
 }
 
 func HelpCall(w http.ResponseWriter, req *http.Request) {
-	c := apps.CallRequest{}
-	json.NewDecoder(req.Body).Decode(&c)
-
-	message := "Help Call"
-	appclient.AsBot(c.Context).DM(c.Context.ActingUser.Id, message)
-
 	httputils.WriteJSON(w,
-		apps.NewTextResponse("Shown Welcome Bot Help"))
+		apps.NewTextResponse(commandHelp))
 }
 
 func PreviewCall(w http.ResponseWriter, req *http.Request) {
@@ -174,13 +180,43 @@ func PreviewCall(w http.ResponseWriter, req *http.Request) {
 }
 
 func ListCall(w http.ResponseWriter, req *http.Request) {
+	var welcomeMessages string
+
+	c := apps.CallRequest{}
+	json.NewDecoder(req.Body).Decode(&c)
+
+	client := appclient.AsBot(c.Context)
+	err := client.KVGet(AppID, "welcome_message", &welcomeMessages)
+	var message string
+
+	if err != nil {
+		message = "You need to set the `welcome_messages` with set_welcome_message"
+	} else {
+		message = "Shown Welcome Bot List"
+	}
+
 	httputils.WriteJSON(w,
-		apps.NewTextResponse("Shown Welcome Bot List"))
+		apps.NewTextResponse(message))
 }
 
 func SetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
+	c := apps.CallRequest{}
+	json.NewDecoder(req.Body).Decode(&c)
+
+	welcomeMessages := c.Values["message"]
+
+	client := appclient.AsBot(c.Context)
+	isSet, err := client.KVSet(AppID, "welcome_message", &welcomeMessages)
+	var message string
+
+	if err != nil || !isSet {
+		message = "We couldn't set your message"
+	} else {
+		message = "Your message has been set"
+	}
+
 	httputils.WriteJSON(w,
-		apps.NewTextResponse("Shown Welcome Bot Set channel welcome"))
+		apps.NewTextResponse(message))
 }
 
 func GetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
