@@ -220,11 +220,32 @@ func SetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
 }
 
 func GetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
+	var welcomeMessages string
+
+	c := apps.CallRequest{}
+	json.NewDecoder(req.Body).Decode(&c)
+
+	client := appclient.AsBot(c.Context)
+	err := client.KVGet(AppID, "welcome_message", &welcomeMessages)
+	var message string
+
+	if err != nil {
+		message = "You need to set the `welcome_messages` with set_welcome_message"
+	} else {
+		message = "Get Welcome channel call"
+	}
+
 	httputils.WriteJSON(w,
-		apps.NewTextResponse("Shown Welcome Bot Get Channel welcome"))
+		apps.NewTextResponse(message))
 }
 
 func DeleteChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
+	c := apps.CallRequest{}
+	json.NewDecoder(req.Body).Decode(&c)
+
+	client := appclient.AsBot(c.Context)
+	client.KVDelete(AppID, "welcome_message")
+
 	httputils.WriteJSON(w,
 		apps.NewTextResponse("Shown Welcome Bot Delete channel welcome"))
 }
