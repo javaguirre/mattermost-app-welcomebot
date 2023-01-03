@@ -20,6 +20,7 @@ var RootURL string = os.Getenv("MANIFEST_ROOT_URL")
 var ServerPort string = os.Getenv("SERVER_PORT")
 
 const AppID = "welcome-bot"
+const KVAppPrefix = "wb"
 const commandHelp = `* |/welcomebot preview [team-name] | - preview the welcome message for the given team name. The current user's username will be used to render the template.
 * |/welcomebot list| - list the teams for which welcome messages were defined
 * |/welcomebot set_channel_welcome [welcome-message]| - set the welcome message for the given channel. Direct channels are not supported.
@@ -91,12 +92,12 @@ var Bindings = []apps.Binding{
 						Submit:  ShowList,
 					},
 					{
-						Label: "preview [team-name]", // Send ephemeral messages to the user
-						Form:  &ShowPreviewForTeam,
+						Label: "preview", // Send ephemeral messages to the user
+						Form:  &ShowPreviewForTeamForm,
 					},
 					{
-						Label: "set_channel_welcome [team-name]", // Sets the given text as current's channel welcome message.
-						Form:  &SetChannelWelcome,
+						Label: "set_channel_welcome", // Sets the given text as current's channel welcome message.
+						Form:  &SetChannelWelcomeForm,
 					},
 					{
 						Label: "get_channel_welcome",  // Sets the current channel's welcome message
@@ -112,7 +113,7 @@ var Bindings = []apps.Binding{
 	},
 }
 
-var ShowPreviewForTeam = apps.Form{
+var ShowPreviewForTeamForm = apps.Form{
 	Title: "Welcome Bot",
 	Icon:  "icon.png",
 	Fields: []apps.Field{
@@ -124,7 +125,7 @@ var ShowPreviewForTeam = apps.Form{
 	Submit: apps.NewCall("/preview").WithExpand(apps.Expand{ActingUserAccessToken: apps.ExpandAll}),
 }
 
-var SetChannelWelcome = apps.Form{
+var SetChannelWelcomeForm = apps.Form{
 	Title: "Welcome Bot",
 	Icon:  "icon.png",
 	Fields: []apps.Field{
@@ -186,7 +187,7 @@ func ListCall(w http.ResponseWriter, req *http.Request) {
 	json.NewDecoder(req.Body).Decode(&c)
 
 	client := appclient.AsBot(c.Context)
-	err := client.KVGet(AppID, "welcome_message", &welcomeMessages)
+	err := client.KVGet(KVAppPrefix, "welcome_message", &welcomeMessages)
 	var message string
 
 	if err != nil {
@@ -206,10 +207,11 @@ func SetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
 	welcomeMessages := c.Values["message"]
 
 	client := appclient.AsBot(c.Context)
-	isSet, err := client.KVSet(AppID, "welcome_message", &welcomeMessages)
+	isSet, err := client.KVSet(KVAppPrefix, "welcome_message", &welcomeMessages)
 	var message string
 
 	if err != nil || !isSet {
+		log.Println(err)
 		message = "We couldn't set your message"
 	} else {
 		message = "Your message has been set"
@@ -226,13 +228,13 @@ func GetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
 	json.NewDecoder(req.Body).Decode(&c)
 
 	client := appclient.AsBot(c.Context)
-	err := client.KVGet(AppID, "welcome_message", &welcomeMessages)
+	err := client.KVGet(KVAppPrefix, "welcome_message", &welcomeMessages)
 	var message string
 
 	if err != nil {
 		message = "You need to set the `welcome_messages` with set_welcome_message"
 	} else {
-		message = "Get Welcome channel call"
+		message = welcomeMessages
 	}
 
 	httputils.WriteJSON(w,
@@ -244,7 +246,7 @@ func DeleteChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
 	json.NewDecoder(req.Body).Decode(&c)
 
 	client := appclient.AsBot(c.Context)
-	client.KVDelete(AppID, "welcome_message")
+	client.KVDelete(KVAppPrefix, "welcome_message")
 
 	httputils.WriteJSON(w,
 		apps.NewTextResponse("Shown Welcome Bot Delete channel welcome"))
