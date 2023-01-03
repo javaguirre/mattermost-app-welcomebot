@@ -155,7 +155,7 @@ func main() {
 	http.HandleFunc("/static/icon.png",
 		httputils.DoHandleData("image/png", IconData))
 
-	// Bindinings callback.
+	// Bindings callback.
 	http.HandleFunc("/bindings",
 		httputils.DoHandleJSON(apps.NewDataResponse(Bindings)))
 
@@ -191,9 +191,9 @@ func ListCall(w http.ResponseWriter, req *http.Request) {
 	var message string
 
 	if err != nil {
-		message = "You need to set the `welcome_messages` with set_welcome_message"
+		message = "There are no welcome messages defined. You need to set the `welcome_messages` with set_welcome_message"
 	} else {
-		message = "Shown Welcome Bot List"
+		message = fmt.Sprintf("%s:\n %s", "Here is the list of the welcome messages", welcomeMessages)
 	}
 
 	httputils.WriteJSON(w,
@@ -204,17 +204,17 @@ func SetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
 	c := apps.CallRequest{}
 	json.NewDecoder(req.Body).Decode(&c)
 
-	welcomeMessages := c.Values["message"]
+	welcomeMessage := c.Values["message"]
 
 	client := appclient.AsBot(c.Context)
-	isSet, err := client.KVSet(KVAppPrefix, "welcome_message", &welcomeMessages)
+	isSet, err := client.KVSet(KVAppPrefix, "welcome_message", &welcomeMessage)
 	var message string
 
 	if err != nil || !isSet {
 		log.Println(err)
 		message = "We couldn't set your message"
 	} else {
-		message = "Your message has been set"
+		message = fmt.Sprintf("%s:\n %s", "Stored the welcome message", welcomeMessage)
 	}
 
 	httputils.WriteJSON(w,
@@ -222,19 +222,19 @@ func SetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
 }
 
 func GetChannelWelcomeCall(w http.ResponseWriter, req *http.Request) {
-	var welcomeMessages string
+	var welcomeMessage string
 
 	c := apps.CallRequest{}
 	json.NewDecoder(req.Body).Decode(&c)
 
 	client := appclient.AsBot(c.Context)
-	err := client.KVGet(KVAppPrefix, "welcome_message", &welcomeMessages)
+	err := client.KVGet(KVAppPrefix, "welcome_message", &welcomeMessage)
 	var message string
 
 	if err != nil {
 		message = "You need to set the `welcome_messages` with set_welcome_message"
 	} else {
-		message = welcomeMessages
+		message = fmt.Sprintf("%s:\n %s", "Welcome message is", welcomeMessage)
 	}
 
 	httputils.WriteJSON(w,
